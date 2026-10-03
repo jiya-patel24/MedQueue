@@ -23,7 +23,10 @@
 - What I changed: shops are now a dropdown grouped by area, and the staff
   side needs a shop-specific 6-digit PIN. While testing I also found that a
   customer was stuck once they had a token, so I added a Leave queue button.
-  I did not build the medicine stock feature; it is the next thing I would add.
+
+##Features not added yet but are a good idea
+- I did not build the medicine stock feature; it is the next thing I would add.
+- Frontend is pretty decent right now. I personally think it needs to be a little more impressive and UI friendly.
 
 ## Constraint (under 150 KB)
 - First load: 3.3 kB transferred (8.0 kB uncompressed, 1 request), measured
