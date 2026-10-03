@@ -1,16 +1,3 @@
--- =====================================================================
--- MedQueue : database schema (Supabase / PostgreSQL)
---
--- Function bodies, the view definition, RLS status and the table columns
--- below come from the LIVE database (verified 2026-10-03).
--- Constraints, indexes and grants were verified as well. Section 9 holds
--- fixes that are NOT applied to the live database yet.
---
--- Run order for a fresh project:
---   extension -> tables -> RLS -> view -> helper -> RPC functions -> grants
--- Do NOT run this on the live project (the objects already exist).
--- =====================================================================
-
 -- 1. Extension: crypt() / gen_salt() for hashing PINs ------------------
 create extension if not exists pgcrypto with schema extensions;
 
@@ -38,9 +25,6 @@ create table tokens (
 );
 
 -- 3. Row Level Security -------------------------------------------------
--- Verified: RLS is ON for both tables and there are NO policies, so the
--- public key cannot read or write the tables directly. All access goes
--- through the security definer functions below.
 alter table shops  enable row level security;
 alter table tokens enable row level security;
 
@@ -50,9 +34,6 @@ create view shops_public as
   from shops;
 
 -- 5. Internal helper: check a shop PIN, with lockout --------------------
--- Returns NULL if the PIN is right, otherwise an error message.
--- 5 wrong PINs in a row lock the shop for 5 minutes.
--- It RETURNS text (not raise) so the fails counter update is committed.
 create or replace function public.auth_shop(p_shop bigint, p_pin text)
  returns text
  language plpgsql
@@ -171,10 +152,8 @@ begin
 end $function$;
 
 -- 7. Permissions (verified live, except the view: see 9.1) -------------
--- The public key has no direct privileges on the tables.
 revoke all on table shops, tokens from anon, authenticated;
 
--- The PIN checker is internal only (live: only postgres and service_role).
 revoke execute on function auth_shop(bigint, text) from public, anon, authenticated;
 
 -- The six functions the browser calls:
@@ -188,20 +167,5 @@ grant execute on function call_next(bigint, text)         to anon, authenticated
 -- The dropdown view: read only (live currently grants much more, see 9.1).
 grant select on shops_public to anon, authenticated;
 
--- 8. Not part of this file ----------------------------------------------
--- public.rls_auto_enable() is an event trigger created by Supabase's
--- "automatically enable RLS" project setting. Supabase recreates it.
--- public.set_num() exists live but is an unused leftover (see section 9).
-
--- 9. FIXES NOT APPLIED TO THE LIVE DATABASE YET -------------------------
-
--- 9.1 shops_public is a simple one-table view, so Postgres treats it as
---     updatable. Live, anon and authenticated hold INSERT/UPDATE/DELETE on
---     it, and a view runs with its owner's rights, which skip RLS on `shops`.
---     The app only ever SELECTs from it, so remove everything else.
 revoke all on shops_public from anon, authenticated;
 grant select on shops_public to anon, authenticated;
-
--- 9.2 Remove the dead leftover (it references a column "shop" that no
---     longer exists and is not attached to any trigger).
--- drop function if exists public.set_num();
