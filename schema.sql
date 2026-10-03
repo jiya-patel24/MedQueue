@@ -1,6 +1,3 @@
--- MedQueue database (Supabase). Matches the live database.
--- Don't run this on the live project, the tables already exist.
-
 create extension if not exists pgcrypto with schema extensions;
 
 create table shops (
@@ -192,9 +189,6 @@ grant execute on function leave_queue(bigint) to anon, authenticated;
 grant execute on function staff_queue(bigint, text) to anon, authenticated;
 grant execute on function call_next(bigint, text) to anon, authenticated;
 
--- a new view gets write access by default, so remove it and keep SELECT only
+
 revoke all on shops_public from anon, authenticated;
 grant select on shops_public to anon, authenticated;
-
--- optional: old unused function, safe to delete
--- drop function if exists set_num();
