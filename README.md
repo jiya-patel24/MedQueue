@@ -1,7 +1,7 @@
 # MedQueue
 
-**Live app:** https://YOUR-USERNAME.github.io/MedQueue/
-**Code:** https://github.com/YOUR-USERNAME/MedQueue
+**Live app:** https://jiya-patel24.github.io/MedQueue/
+**Code:** https://github.com/jiya-patel24/MedQueue
 
 ## The annoyance
 - People wait standing inside or outside crowded medical shops, often in a rush.
