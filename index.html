@@ -3,174 +3,176 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MedQueue</title>
+<title>Medical Queue</title>
 <style>
-:root{--bg:#f5f8f7;--ink:#12302b;--mute:#667c77;--acc:#0e9a87;--accd:#0a7466;--tint:#e6f3f0;--line:#dde9e6}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
-.wrap{max-width:440px;margin:0 auto;padding:22px 16px 48px}
-header{margin-bottom:18px}
-.brand{font-size:15px;font-weight:700;color:var(--acc)}
-h1{margin:2px 0 0;font-size:28px;line-height:1.15}
-.sub{color:var(--mute);font-size:14px;margin:6px 0 0}
-.sub a{color:var(--accd);cursor:pointer;text-decoration:underline}
-.tabs{display:flex;background:#e3eeeb;border-radius:999px;padding:4px;margin-bottom:18px}
-.tabs button{flex:1;border:0;background:none;padding:10px;border-radius:999px;font:600 15px inherit;font-family:inherit;color:var(--mute);cursor:pointer}
-.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(18,48,43,.15)}
-.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px}
-input{width:100%;font:17px inherit;font-family:inherit;padding:14px;border:1px solid #cddcd8;border-radius:12px;margin:10px 0 4px;outline:none}
-input:focus,button:focus-visible,.tabs button:focus-visible{outline:3px solid rgba(14,154,135,.35);outline-offset:1px}
-.btn{width:100%;font:600 17px inherit;font-family:inherit;padding:15px;border:0;border-radius:12px;background:var(--acc);color:#fff;cursor:pointer;margin-top:10px}
-.btn:hover{background:var(--accd)}
-.btn:disabled{opacity:.6}
-.lbl{font-size:14px;color:var(--mute)}
-.num{font-size:96px;font-weight:800;color:var(--acc);line-height:1;margin:8px 0 4px;letter-spacing:-.03em}
-.stats{display:flex;gap:10px;margin-top:16px}
-.stat{flex:1;background:var(--tint);border-radius:14px;padding:12px;text-align:left}
-.stat b{display:block;font-size:28px;line-height:1.1}
-.stat span{font-size:13px;color:var(--mute)}
-.done{text-align:center}
-.done .big{font-size:60px}
-.list{list-style:none;margin:16px 0 0;padding:0}
-.list li{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
-.list .n{background:var(--tint);color:var(--accd);font-weight:700;border-radius:8px;padding:3px 10px;min-width:50px;text-align:center}
-.note{background:var(--tint);color:var(--accd);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:14px}
-.empty{color:var(--mute);padding:18px 0 4px}
-@media (prefers-reduced-motion:no-preference){.num{transition:color .2s}}
+body{font-family:sans-serif;max-width:420px;margin:0 auto;padding:16px;text-align:center}
+input,select,button{font-size:18px;padding:12px;width:100%;margin:6px 0;box-sizing:border-box}
+button{background:#0a7;color:#fff;border:0;border-radius:8px}
+.big{font-size:64px;margin:10px 0}
+.err{color:#c00;min-height:1.2em}
+small{display:block;margin-top:18px}
+a{color:#0a7}
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-<div class="brand">💊 MedQueue</div>
-<h1 id="shopname"></h1>
-<p class="sub">Wait anywhere. We'll show when it's your turn. <a id="chg">Change shop</a></p>
-</header>
-<div class="tabs"><button id="tc">Customer</button><button id="ts">Staff</button></div>
+<h2>💊 MedQueue</h2>
 <div id="v"></div>
-</div>
+<p id="e" class="err"></p>
 <script>
-const u = "https://vyhmihcipzequxdtdoov.supabase.co/rest/v1/tokens";
+const B = "https://vyhmihcipzequxdtdoov.supabase.co/rest/v1/";
 const k = "sb_publishable_jb-CXkwFwT1Dx5Zck9FO5g_zpn4w6nM";
-const h = {apikey: k, "Content-Type": "application/json", Prefer: "return=representation"};
+const h = {apikey: k, Authorization: "Bearer " + k, "Content-Type": "application/json"};
 const p = new URLSearchParams(location.search);
-let shop = (p.get("shop") || "").trim().toLowerCase();
-let staff = p.has("staff");
-let me = null, busy = false, last = "", queue = [];
+const staff = p.has("staff"), reg = p.has("register");
+const v = document.getElementById("v");
 const $ = id => document.getElementById(id);
-const v = $("v");
+const err = m => { $("e").textContent = m || ""; };
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+let me = localStorage.getItem("mq_tok");
+let ss = JSON.parse(sessionStorage.getItem("mq_staff") || "null"); // {id, pin, name}
 
-function esc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+async function api(path, opt) {
+  const r = await fetch(B + path, opt);
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.message) || "Something went wrong");
+  return j;
 }
-async function api(q) {
-  const r = await fetch(u + q, {headers: h});
-  if (!r.ok) throw new Error(r.status);
-  return r.json();
+const rpc = (f, a) => api("rpc/" + f, {method: "POST", headers: h, body: JSON.stringify(a)});
+
+async function shopSelect() {
+  const s = await api("shops_public?select=id,name,area&order=area,name", {headers: h});
+  if (!s.length) return '<p>No shops registered yet.</p>';
+  let o = '<select id="s"><option value="">Choose a shop…</option>', a = "";
+  for (const x of s) {
+    if (x.area !== a) { if (a) o += '</optgroup>'; o += '<optgroup label="' + esc(x.area) + '">'; a = x.area; }
+    o += '<option value="' + x.id + '">' + esc(x.name) + '</option>';
+  }
+  return o + '</optgroup></select>';
 }
-function sync() {
-  const q = new URLSearchParams();
-  if (shop) q.set("shop", shop);
-  if (staff) q.set("staff", "1");
-  history.replaceState(null, "", "?" + q.toString());
-  $("tc").className = staff ? "" : "on";
-  $("ts").className = staff ? "on" : "";
-  $("shopname").textContent = shop || "Choose a shop";
-  $("chg").style.display = shop ? "" : "none";
-}
+
 async function go() {
-  sync();
-  if (!shop) return showShop();
-  me = localStorage.getItem("tok_" + shop);
-  if (!staff && !me) return showJoin();
+  err();
   try {
-    const a = await api("?shop=eq." + encodeURIComponent(shop) + "&status=eq.waiting&order=id");
-    if (staff) return showStaff(a);
-    const b = await api("?id=eq." + me);
-    showMine(b[0], a);
-  } catch (e) {
-    v.innerHTML = '<div class="card"><p class="empty">Can\'t reach the server. Retrying in a few seconds.</p></div>';
-  }
+    if (reg) return showReg();
+    if (staff) return ss ? showStaff(await staffQueue()) : await showLogin();
+    if (!me) return await showJoin();
+    showMine(await rpc("my_token", {p_id: +me}));
+  } catch (x) { err(x.message); }
 }
-function showShop() {
-  v.innerHTML = '<div class="card"><div class="lbl">Which medical shop is this queue for?</div><input id="sn" value="demo-pharmacy" aria-label="Shop name"><button class="btn" onclick="setShop()">Open queue</button></div>';
+
+/* ---------- customer ---------- */
+async function showJoin() {
+  v.innerHTML = (await shopSelect()) + '<input id="n" placeholder="Your name" maxlength="40">' +
+    '<button onclick="join()">Get my token</button><small><a href="?staff">Shop staff</a></small>';
 }
-function setShop() {
-  const s = $("sn").value.trim().toLowerCase().replace(/\s+/g, "-");
-  if (!s) return;
-  shop = s;
-  go();
-}
-function showJoin() {
-  v.innerHTML = '<div class="card"><div class="lbl">Add your name to get a token</div><input id="n" placeholder="Your name" maxlength="40" autocomplete="name" aria-label="Your name"><button class="btn" id="jb" onclick="join()">Get my token</button></div>';
-}
+
 async function join() {
-  if (busy) return;
-  const n = $("n").value.trim();
-  if (!n) return alert("Type your name first");
-  busy = true;
-  $("jb").disabled = true;
+  const s = $("s") && $("s").value, n = $("n").value.trim();
+  if (!s) return err("Pick a shop first");
+  if (!n) return err("Type your name first");
   try {
-    const r = await fetch(u, {method: "POST", headers: h, body: JSON.stringify({shop: shop, name: n})});
-    if (!r.ok) throw new Error(r.status);
-    const d = await r.json();
-    localStorage.setItem("tok_" + shop, d[0].id);
-  } catch (e) {
-    alert("Couldn't get a token. Check your connection and try again.");
-    busy = false;
-    $("jb").disabled = false;
-    return;
-  }
-  busy = false;
-  go();
+    const r = await rpc("join_queue", {p_shop: +s, p_name: n});
+    me = r.id;
+    localStorage.setItem("mq_tok", me);
+    go();
+  } catch (x) { err(x.message); }
 }
-function showMine(b, a) {
-  if (!b) return again();
+
+function showMine(b) {
+  if (!b || b.status == "left") return again();
   if (b.status == "called") {
-    v.innerHTML = '<div class="card done"><div class="big">🎉</div><h2>It\'s your turn</h2><p class="sub">Please go to the counter with token #' + b.num + '.</p><button class="btn" onclick="again()">Done</button></div>';
+    v.innerHTML = '<div class="big">🎉</div><h3>Your turn! Go to the counter</h3><p>' + esc(b.shop) + '</p><button onclick="again()">Done</button>';
     return;
   }
-  const c = a.filter(x => x.id < me).length;
-  v.innerHTML = '<div class="card"><div class="lbl">Your token, ' + esc(b.name) + '</div><div class="num">#' + b.num + '</div><div class="stats"><div class="stat"><b>' + c + '</b><span>people ahead</span></div><div class="stat"><b>~' + c * 3 + ' min</b><span>estimated wait</span></div></div></div>';
+  v.innerHTML = '<p>' + esc(b.shop) + ' · ' + esc(b.area) + '</p><p>Your token</p><div class="big">#' + b.num +
+    '</div><p>People ahead of you: <b>' + b.ahead + '</b></p><p>About ' + b.ahead * 3 + ' min</p>' +
+    '<button style="background:#888" onclick="leave()">Leave queue</button>';
 }
-function again() {
-  localStorage.removeItem("tok_" + shop);
-  me = null;
-  showJoin();
-}
-function showStaff(a) {
-  queue = a;
-  let s = '<div class="card">';
-  if (last) s += '<div class="note">' + last + '</div>';
-  s += '<div class="stats"><div class="stat"><b>' + a.length + '</b><span>waiting</span></div><div class="stat"><b>~' + a.length * 3 + ' min</b><span>to clear the queue</span></div></div>';
-  if (a.length) {
-    s += '<button class="btn" onclick="next(' + a[0].id + ')">Call next: ' + esc(a[0].name) + ' (#' + a[0].num + ')</button><ul class="list">';
-    a.forEach(x => { s += '<li><span class="n">#' + x.num + '</span>' + esc(x.name) + '</li>'; });
-    s += '</ul>';
-  } else {
-    s += '<p class="empty">No one is waiting. New tokens appear here automatically.</p>';
-  }
-  v.innerHTML = s + '</div>';
-}
-async function next(id) {
-  if (busy) return;
-  busy = true;
-  const x = queue.find(t => t.id == id);
+
+async function leave() {
+  if (!confirm("Leave the queue? You will lose your spot.")) return;
   try {
-    const r = await fetch(u + "?id=eq." + id, {method: "PATCH", headers: h, body: JSON.stringify({status: "called"})});
-    if (!r.ok) throw new Error(r.status);
-    if (x) last = "Called: " + esc(x.name) + " (#" + x.num + ")";
-  } catch (e) {
-    alert("Couldn't call the next person. Try again.");
-  }
-  busy = false;
+    await rpc("leave_queue", {p_id: +me});
+    again();
+  } catch (x) { err(x.message); }
+}
+
+function again() {
+  localStorage.removeItem("mq_tok");
+  me = null;
   go();
 }
-$("tc").onclick = () => { staff = false; go(); };
-$("ts").onclick = () => { staff = true; go(); };
-$("chg").onclick = () => { shop = ""; go(); };
+
+/* ---------- shop staff ---------- */
+async function showLogin() {
+  v.innerHTML = (await shopSelect()) +
+    '<input id="p" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN">' +
+    '<button onclick="login()">Open staff view</button>' +
+    '<small><a href="?register">Register a new shop</a> · <a href="./">I\'m a customer</a></small>';
+}
+
+async function login() {
+  const s = $("s") && $("s").value, pin = $("p").value;
+  if (!s || !pin) return err("Pick your shop and enter the PIN");
+  try {
+    const r = await rpc("staff_queue", {p_shop: +s, p_pin: pin});
+    if (!r.ok) return err(r.msg);
+    setStaff({id: +s, pin: pin, name: $("s").selectedOptions[0].text});
+    go();
+  } catch (x) { err(x.message); }
+}
+
+function setStaff(o) {
+  ss = o;
+  sessionStorage.setItem("mq_staff", JSON.stringify(o));
+}
+
+function logout() {
+  ss = null;
+  sessionStorage.removeItem("mq_staff");
+  go();
+}
+
+async function staffQueue() {
+  const r = await rpc("staff_queue", {p_shop: ss.id, p_pin: ss.pin});
+  if (!r.ok) { logout(); throw new Error(r.msg); }
+  return r.waiting;
+}
+
+function showStaff(w) {
+  let s = '<p>' + esc(ss.name) + '</p><p>Waiting: <b>' + w.length + '</b></p>';
+  if (w.length) s += '<button onclick="next()">Call next: ' + esc(w[0].name) + ' (#' + w[0].num + ')</button>';
+  v.innerHTML = s + '<button style="background:#888" onclick="logout()">Log out</button>' +
+  '<small><a href="?register">Register another shop</a></small>';
+}
+
+async function next() {
+  try {
+    const r = await rpc("call_next", {p_shop: ss.id, p_pin: ss.pin});
+    if (!r.ok) throw new Error(r.msg);
+    go();
+  } catch (x) { err(x.message); }
+}
+
+/* ---------- registration ---------- */
+function showReg() {
+  v.innerHTML = '<input id="rn" placeholder="Shop name" maxlength="60">' +
+    '<input id="ra" placeholder="Area (e.g. Kothrud)" maxlength="60">' +
+    '<input id="rp" type="password" inputmode="numeric" maxlength="6" placeholder="Choose a 6-digit PIN">' +
+    '<button onclick="doReg()">Register shop</button><small><a href="?staff">Back to staff login</a></small>';
+}
+
+async function doReg() {
+  const n = $("rn").value.trim(), a = $("ra").value.trim(), pin = $("rp").value;
+  try {
+    const id = await rpc("register_shop", {p_name: n, p_area: a, p_pin: pin});
+    setStaff({id: id, pin: pin, name: n});
+    location.search = "?staff";
+  } catch (x) { err(x.message); }
+}
+
 go();
-setInterval(() => { if (!busy && shop && (staff || localStorage.getItem("tok_" + shop))) go(); }, 5000);
+setInterval(() => { if (!reg && (staff ? ss : me)) go(); }, 5000);
 </script>
 </body>
 </html>
