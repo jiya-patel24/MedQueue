@@ -1,3 +1,6 @@
+-- MedQueue database (Supabase). Matches the live database.
+-- Don't run this on the live project, the tables already exist.
+
 create extension if not exists pgcrypto with schema extensions;
 
 create table shops (
@@ -17,6 +20,9 @@ create table tokens (
   name text not null check (char_length(name) between 1 and 40),
   status text not null default 'waiting'
     check (status in ('waiting', 'called', 'left', 'done', 'cancelled')),
+  -- random secret returned only to the customer who joined,
+  -- needed to read or cancel that token (ids alone are guessable)
+  secret uuid not null default gen_random_uuid(),
   created_at timestamptz default now(),
   unique (shop_id, num)
 );
@@ -93,21 +99,24 @@ language plpgsql
 security definer
 set search_path to 'public'
 as $$
-declare new_num int; new_token_id bigint;
+declare new_num int; new_token_id bigint; new_secret uuid;
 begin
   p_name := trim(p_name);
   if p_name = '' then raise exception 'Type your name first'; end if;
+  if not exists (select 1 from shops where id = p_shop) then
+    raise exception 'Shop not found';
+  end if;
   -- lock so two people can't get the same number
   perform pg_advisory_xact_lock(p_shop);
   select coalesce(max(num), 0) + 1 into new_num from tokens where shop_id = p_shop;
   insert into tokens(shop_id, num, name)
   values (p_shop, new_num, left(p_name, 40))
-  returning id into new_token_id;
-  return jsonb_build_object('id', new_token_id, 'num', new_num);
+  returning id, secret into new_token_id, new_secret;
+  return jsonb_build_object('id', new_token_id, 'secret', new_secret, 'num', new_num);
 end
 $$;
 
-create or replace function my_token(p_id bigint)
+create or replace function my_token(p_id bigint, p_secret uuid)
 returns jsonb
 language sql
 security definer
@@ -122,10 +131,10 @@ as $$
               where w.shop_id = t.shop_id and w.status = 'waiting' and w.id < t.id)
   )
   from tokens t join shops s on s.id = t.shop_id
-  where t.id = p_id;
+  where t.id = p_id and t.secret = p_secret;
 $$;
 
-create or replace function leave_queue(p_id bigint)
+create or replace function leave_queue(p_id bigint, p_secret uuid)
 returns boolean
 language plpgsql
 security definer
@@ -133,7 +142,7 @@ set search_path to 'public'
 as $$
 begin
   update tokens set status = 'left'
-  where id = p_id and status = 'waiting';
+  where id = p_id and secret = p_secret and status = 'waiting';
   return found;
 end
 $$;
@@ -184,11 +193,11 @@ revoke execute on function auth_shop(bigint, text) from public, anon, authentica
 
 grant execute on function register_shop(text, text, text) to anon, authenticated;
 grant execute on function join_queue(bigint, text) to anon, authenticated;
-grant execute on function my_token(bigint) to anon, authenticated;
-grant execute on function leave_queue(bigint) to anon, authenticated;
+grant execute on function my_token(bigint, uuid) to anon, authenticated;
+grant execute on function leave_queue(bigint, uuid) to anon, authenticated;
 grant execute on function staff_queue(bigint, text) to anon, authenticated;
 grant execute on function call_next(bigint, text) to anon, authenticated;
 
-
+-- a new view gets write access by default, so remove it and keep SELECT only
 revoke all on shops_public from anon, authenticated;
 grant select on shops_public to anon, authenticated;
