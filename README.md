@@ -1,4 +1,8 @@
 # MedQueue
+
+**Live app:** https://YOUR-USERNAME.github.io/MedQueue/
+**Code:** https://github.com/YOUR-USERNAME/MedQueue
+
 ## The annoyance
 - People wait standing inside or outside crowded medical shops, often in a rush.
 - I asked family members about everyday problems. My mom described having
@@ -16,7 +20,10 @@
   location, and that only the shop should see the staff side.
 - Tester 2 (my aunt, software tester): suggested shops log their medicine
   stock so customers don't wait for a medicine that isn't available.
-- What I changed: TODO
+- What I changed: shops are now a dropdown grouped by area, and the staff
+  side needs a shop-specific 6-digit PIN. While testing I also found that a
+  customer was stuck once they had a token, so I added a Leave queue button.
+  I did not build the medicine stock feature; it is the next thing I would add.
 
 ## Constraint (under 150 KB)
 - First load: 3.3 kB transferred (8.0 kB uncompressed, 1 request), measured
@@ -24,7 +31,7 @@
 - No framework, no library. One HTML file with inline CSS/JS.
 - Supabase is called with plain `fetch`, so I skipped the 100+ KB client library.
 - Page checks for new data every 5 sec instead of heavy realtime sockets.
-  
+
 ## AI
 - Used AI for code suggestions and to learn Supabase, which I had not used
   before. I learned the basics while building this.
