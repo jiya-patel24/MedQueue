@@ -13,7 +13,7 @@
 ## The great part
 - Per-shop token numbering: I found by testing a new shop that tokens were
   numbered across all shops (the first customer got #4), and fixed it.
-- Merging customer and staff into one page with a switch.
+- Being able to add multiple shops along with their Pin codes so that they appear as a dropdown to the customers.
 
 ## The two testers
 - Tester 1 (my mom, CS professor): suggested a dropdown of shops with their
@@ -31,7 +31,8 @@
 - No framework, no library. One HTML file with inline CSS/JS.
 - Supabase is called with plain `fetch`, so I skipped the 100+ KB client library.
 - Page checks for new data every 5 sec instead of heavy realtime sockets.
+- Observed 3.9 kB for the customer page and 3.6 kB for the shop staff page.
 
 ## AI
 - Used AI for code suggestions and to learn Supabase, which I had not used
-  before. I learned the basics while building this.
+  before. I learned the basics while building this. 
