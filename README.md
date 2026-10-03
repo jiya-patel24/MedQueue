@@ -18,6 +18,13 @@
   stock so customers don't wait for a medicine that isn't available.
 - What I changed: TODO
 
+## Constraint (under 150 KB)
+- First load: 3.3 kB transferred (8.0 kB uncompressed, 1 request), measured
+  in Chrome DevTools > Network with cache disabled.
+- No framework, no library. One HTML file with inline CSS/JS.
+- Supabase is called with plain `fetch`, so I skipped the 100+ KB client library.
+- Page checks for new data every 5 sec instead of heavy realtime sockets.
+  
 ## AI
 - Used AI for code suggestions and to learn Supabase, which I had not used
   before. I learned the basics while building this.
