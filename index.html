@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Medical Queue</title>
+<style>
+body{font-family:sans-serif;max-width:420px;margin:0 auto;padding:16px;text-align:center}
+input,button{font-size:18px;padding:12px;width:100%;margin:6px 0;box-sizing:border-box}
+button{background:#0a7;color:#fff;border:0;border-radius:8px}
+.big{font-size:64px;margin:10px 0}
+</style>
+</head>
+<body>
+<h2 id="t"></h2>
+<div id="v"></div>
+<script>
+const u = "https://vyhmihcipzequxdtdoov.supabase.co/rest/v1/tokens";
+const k = "sb_publishable_jb-CXkwFwT1Dx5Zck9FO5g_zpn4w6nM";
+const h = {apikey: k, "Content-Type": "application/json", Prefer: "return=representation"};
+const p = new URLSearchParams(location.search);
+const shop = p.get("shop") || "demo";
+const staff = p.has("staff");
+let me = localStorage.getItem("tok_" + shop);
+document.getElementById("t").textContent = "💊 " + shop;
+const v = document.getElementById("v");
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+}
+
+async function go() {
+  if (!me && !staff) return showJoin();
+  const a = await fetch(u + "?shop=eq." + encodeURIComponent(shop) + "&status=eq.waiting&order=id", {headers: h}).then(r => r.json());
+  if (staff) return showStaff(a);
+  const b = await fetch(u + "?id=eq." + me, {headers: h}).then(r => r.json());
+  showMine(b[0], a);
+}
+
+function showJoin() {
+  v.innerHTML = '<input id="n" placeholder="Your name"><button onclick="join()">Get my token</button>';
+}
+
+async function join() {
+  const n = document.getElementById("n").value.trim();
+  if (!n) return alert("Type your name first");
+  const r = await fetch(u, {method: "POST", headers: h, body: JSON.stringify({shop: shop, name: n})}).then(r => r.json());
+  me = r[0].id;
+  localStorage.setItem("tok_" + shop, me);
+  go();
+}
+
+function showMine(b, a) {
+  if (!b) return again();
+  if (b.status == "called") {
+    v.innerHTML = '<div class="big">🎉</div><h3>Your turn! Go to the counter</h3><button onclick="again()">Done</button>';
+    return;
+  }
+  const c = a.filter(x => x.id < me).length;
+  v.innerHTML = '<p>Your token</p><div class="big">#' + b.num + '</div><p>People ahead of you: <b>' + c + '</b></p><p>About ' + c * 3 + ' min</p>';
+}
+
+function again() {
+  localStorage.removeItem("tok_" + shop);
+  me = null;
+  showJoin();
+}
+
+function showStaff(a) {
+  let s = '<p>Waiting: <b>' + a.length + '</b></p>';
+  if (a.length) s += '<button onclick="next(' + a[0].id + ')">Call next: ' + esc(a[0].name) + ' (#' + a[0].num + ')</button>';
+  v.innerHTML = s;
+}
+
+async function next(id) {
+  await fetch(u + "?id=eq." + id, {method: "PATCH", headers: h, body: JSON.stringify({status: "called"})});
+  go();
+}
+
+go();
+setInterval(() => { if (me || staff) go(); }, 5000);
+</script>
+</body>
+</html>
