@@ -29,7 +29,10 @@ const $ = id => document.getElementById(id);
 const err = m => { $("e").textContent = m || ""; };
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 let me = localStorage.getItem("mq_tok");
+let sec = localStorage.getItem("mq_sec");
+if (me && !sec) { localStorage.removeItem("mq_tok"); me = null; } // old token without a secret
 let ss = JSON.parse(sessionStorage.getItem("mq_staff") || "null"); // {id, pin, name}
+let buzzed = false;
 
 async function api(path, opt) {
   const r = await fetch(B + path, opt);
@@ -56,7 +59,7 @@ async function go() {
     if (reg) return showReg();
     if (staff) return ss ? showStaff(await staffQueue()) : await showLogin();
     if (!me) return await showJoin();
-    showMine(await rpc("my_token", {p_id: +me, p_secret: localStorage.getItem("mq_sec")}));
+    showMine(await rpc("my_token", {p_id: +me, p_secret: sec}));
   } catch (x) { err(x.message); }
 }
 
@@ -73,8 +76,9 @@ async function join() {
   try {
     const r = await rpc("join_queue", {p_shop: +s, p_name: n});
     me = r.id;
+    sec = r.secret;
     localStorage.setItem("mq_tok", me);
-    localStorage.setItem("mq_sec", r.secret);
+    localStorage.setItem("mq_sec", sec);
     go();
   } catch (x) { err(x.message); }
 }
@@ -82,6 +86,11 @@ async function join() {
 function showMine(b) {
   if (!b || (b.status != "waiting" && b.status != "called")) return again();
   if (b.status == "called") {
+    if (!buzzed) {
+      buzzed = true;
+      document.title = "🎉 Your turn!";
+      if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    }
     v.innerHTML = '<div class="big">🎉</div><h3>Your turn! Go to the counter</h3><p>' + esc(b.shop) + '</p><button onclick="again()">Done</button>';
     return;
   }
@@ -93,7 +102,7 @@ function showMine(b) {
 async function leave() {
   if (!confirm("Leave the queue? You will lose your spot.")) return;
   try {
-    await rpc("leave_queue", {p_id: +me, p_secret: localStorage.getItem("mq_sec")});
+    await rpc("leave_queue", {p_id: +me, p_secret: sec});
     again();
   } catch (x) { err(x.message); }
 }
@@ -102,6 +111,9 @@ function again() {
   localStorage.removeItem("mq_tok");
   localStorage.removeItem("mq_sec");
   me = null;
+  sec = null;
+  buzzed = false;
+  document.title = "Medical Queue";
   go();
 }
 
