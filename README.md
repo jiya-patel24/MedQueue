@@ -24,7 +24,7 @@
   side needs a shop-specific 6-digit PIN. While testing I also found that a
   customer was stuck once they had a token, so I added a Leave queue button.
 
-##Features not added yet but are a good idea
+## Features not added yet but are a good idea
 - I did not build the medicine stock feature; it is the next thing I would add.
 - Frontend is pretty decent right now. I personally think it needs to be a little more impressive and UI friendly.
 
