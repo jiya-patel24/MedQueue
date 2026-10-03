@@ -141,9 +141,16 @@ async function staffQueue() {
 
 function showStaff(w) {
   let s = '<p>' + esc(ss.name) + '</p><p>Waiting: <b>' + w.length + '</b></p>';
-  if (w.length) s += '<button onclick="next()">Call next: ' + esc(w[0].name) + ' (#' + w[0].num + ')</button>';
+  if (w.length) {
+    s += '<button onclick="next()">Call next: ' + esc(w[0].name) + ' (#' + w[0].num + ')</button>';
+    s += '<ul style="list-style:none;padding:0;text-align:left;margin:16px 0">';
+    for (const t of w) {
+      s += '<li style="padding:10px 4px;border-bottom:1px solid #ddd"><b>#' + t.num + '</b> ' + esc(t.name) + '</li>';
+    }
+    s += '</ul>';
+  }
   v.innerHTML = s + '<button style="background:#888" onclick="logout()">Log out</button>' +
-  '<small><a href="?register">Register another shop</a></small>';
+    '<small><a href="?register">Register another shop</a></small>';
 }
 
 async function next() {
